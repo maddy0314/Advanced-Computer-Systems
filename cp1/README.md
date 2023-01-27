@@ -37,6 +37,12 @@ Thread Compression Function Operations:
 2) Set up ZSTD input and output buffers for a single chunk
 3) Read 16kB from the input buffer, compress it, and write it to the output buffer
 
+### Results and Analysis
+The following graph was generated using an input .txt file of 25MB. Execution was timed using the time command when running the project in Ubuntu on WSL. Data points were taken at 1-10, 15, 20, 25, 50, 75, and 100 threads.
+![Real Time (s) vs  Threads](https://user-images.githubusercontent.com/98151091/215096855-5f79ca90-77e0-4f20-a6ad-408d8426ebbd.png)
+
+Extreme gains in time efficiency are observed from 1 to 5 threads - it takes 0.508 seconds to run the program with just one thread, but only 0.016 seconds to run it with five. Gains are more minimal from there - it takes 0.014 seconds to run with 20 threads, and the lowest I could get it was to around 0.010 seconds at 50 threads. It is likely that time stabilizes at about 5 threads because creating and managing more threads is costly - the computational load of making more threads is probably balancing out any increases in efficiency they might have conferred.
+
 ### Shortcomings and Improvements
 + At present, the .txt.zst output files produced by this program are corrupted. It is imperative to understand why this is happening and modify the program to produce decompressable files.
 + Using DrMemory on this code displays a few minor memory leaks. Finding and patching these would increase efficiency.
