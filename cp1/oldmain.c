@@ -8,7 +8,6 @@
  * You may select, at your option, one of the above-listed licenses.
  */
 
-
 #include <stdio.h>     // printf
 #include <stdlib.h>    // free
 #include <string.h>    // memset, strcat, strlen
