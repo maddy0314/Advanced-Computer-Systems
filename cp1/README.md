@@ -38,6 +38,8 @@ Thread Compression Function Operations:
 2) Set up ZSTD input and output buffers for a single chunk
 3) Read 16kB from the input buffer, compress it, and write it to the output buffer
 
+The thread wrapper struct serves to pass relevant buffering information to the thread, since threads can only be passed one argument during their creation.
+
 ### Results and Analysis
 The following graph was generated using an input .txt file of 25MB. Execution was timed using the time command when running the project in Ubuntu on WSL. Data points were taken at 1-10, 15, 20, 25, 50, 75, and 100 threads.
 ![Real Time (s) vs  Threads](https://user-images.githubusercontent.com/98151091/215096855-5f79ca90-77e0-4f20-a6ad-408d8426ebbd.png)
