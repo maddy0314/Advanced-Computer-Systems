@@ -1,3 +1,9 @@
+/* Advanced Computer Systems SP23 */
+/* Maddy Avni */
+/* main.c */
+
+/* Using zstd, predicated on https://github.com/facebook/zstd/blob/dev/examples/streaming_compression.c. */
+/* License for streaming_compression.c reproduced below. */
 /*
  * Copyright (c) Meta Platforms, Inc. and affiliates.
  * All rights reserved.
@@ -8,32 +14,30 @@
  * You may select, at your option, one of the above-listed licenses.
  */
 
-
-#include <stdio.h>     // printf
-#include <stdlib.h>    // free
-#include <string.h>    // memset, strcat, strlen
+#include <stdio.h>     
+#include <stdlib.h>   
+#include <string.h>    
 #include <zstd.h>      // presumes zstd library is installed
 #include <pthread.h>
 #include "common.h"    // Helper functions, CHECK(), and CHECK_ZSTD()
 
-//For passing data into pthreads
+/* Define wrapper structure to pass args for pthreadCompressor during pthread init */
 typedef struct pthreadWrapper {
     int id;
     ZSTD_CCtx* context;
-    char* inPtr; //Read pointer in input buffer
+    char* inPtr;      //Read pointer in input buffer
     size_t inSize;
-    char* outPtr; //Write pointer in output buffer
+    char* outPtr;     //Write pointer in output buffer
     size_t outSize;
     size_t outPos;
-    int cLevel; // Compression level
+    int cLevel;       // Compression level
 } pthreadWrapper_t;
 
+/* Uses a pthread to compress a chunk of data with ZSTD streaming compression */
 static void *pthreadCompressor(void* args) {
-    printf("entered compressor\n");
-    struct pthreadWrapper* ptw = (struct pthreadWrapper*)args;
-    printf("Hello World! It's me, thread #%d!\n", ptw->id);
+    struct pthreadWrapper* ptw = (struct pthreadWrapper*)args;     //Unwrap args
 
-    /* Create the context. */
+    /* Create the ZSTD context. */
     ZSTD_CCtx* const cctx = ZSTD_createCCtx();
     CHECK(cctx != NULL, "ZSTD_createCCtx() failed!");
 
@@ -42,24 +46,21 @@ static void *pthreadCompressor(void* args) {
      */
     CHECK_ZSTD( ZSTD_CCtx_setParameter(cctx, ZSTD_c_compressionLevel, ptw->cLevel) );
     CHECK_ZSTD( ZSTD_CCtx_setParameter(cctx, ZSTD_c_checksumFlag, 1) );
-    //ZSTD_CCtx_setParameter(cctx, ZSTD_c_nbWorkers, nbThreads);
 
     ZSTD_inBuffer input = { ptw->inPtr, ptw->inSize, 0 };
 
     ptw->outPtr = malloc_orDie(ptw->inSize);
     ZSTD_outBuffer output = { ptw->outPtr, ptw->outSize, 0 };
 
+    /* Perform the actual compression. */
     size_t const remaining = ZSTD_compressStream2(cctx, &output , &input, ptw->cLevel);
-    //CHECK_ZSTD(remaining);
+    CHECK_ZSTD(remaining);
 
     ptw->outPos = output.pos;
 
     ZSTD_freeCCtx(cctx);
-    //free(ptw->outPtr);
 
     return NULL;
-
-    //pthread_exit(NULL);
 }
 
 static char* createOutFilename_orDie(const char* filename) {
@@ -99,37 +100,19 @@ int main(int argc, const char** argv) {
 
     char* const outFilename = createOutFilename_orDie(inFilename);
 
-//MAIN THREAD: PREP THREADS
+/* MAIN THREAD: PREP THREAD RESOURCES */
     pthread_t pthreads[nbThreads];
     struct pthreadWrapper wrappers[nbThreads];
 
-//MAIN THREAD: INITIALIZE FILES BUFFERS & STREAMS
-    /* Open the input and output files. */
+/* MAIN THREAD: INITIALIZE FILES */
     FILE* const fin  = fopen_orDie(inFilename, "rb");
-    FILE* const fout = fopen_orDie(outFilename, "wb");
-    /* Create the input and output buffers.
-     * They may be any size, but we recommend using these functions to size them.
-     * Performance will only suffer significantly for very tiny buffers.
-     */
-    //size_t const buffInSize = ZSTD_CStreamInSize();
-    //void* buffIn;
-    //size_t const buffOutSize = ZSTD_CStreamOutSize();
-    //void*  const buffOut = malloc_orDie(buffOutSize);
+    FILE* const fout = fopen_orDie(outFilename, "wb"); 
 
-
-
-    
-
-//LOOP MAIN THREAD: READ A CHUNK OF THE FILE
-    size_t const toRead = 16*1024;
+/* MAIN THREAD LOOP: READ AND PROCESS CHUNKS */
+    size_t const toRead = 16*1024;     //Chunk size hardcoded at 16kb
     int lastChunk = 0;
-    char* running = malloc(sizeof(char)*nbThreads);
+    char* running = malloc(sizeof(char)*nbThreads);  //Tracks active threads
     memset(running, 0, nbThreads);
-
-    for(int i = 0; i <nbThreads; i++) {
-        printf("%c\n", running[i]);
-    }
-    printf("\n");
 
     char* testptr;
 
@@ -148,11 +131,9 @@ int main(int argc, const char** argv) {
             lastChunk = (read < toRead);
             ZSTD_EndDirective const mode = lastChunk ? ZSTD_e_end : ZSTD_e_continue;
 
-    //LOOP MAIN THREAD: MAKE THREAD FOR CURRENT CHUNK
-
+            /* MAIN THREAD LOOP: MAKE THREAD FOR CURRENT CHUNK */
             if(read > 0) {
                 ptw.id = i;
-                //ptw.context = cctx;
                 ptw.inSize = read;
                 ptw.cLevel = cLevel;
 
@@ -164,6 +145,7 @@ int main(int argc, const char** argv) {
             }
         }
 
+        /* MAIN THREAD LOOP: WRITE THREAD DATA TO FILE */
         for(int i = 0; i < nbThreads; i++) {
             if(running[i] == 1) {
                 pthread_join(pthreads[i],NULL);
@@ -177,6 +159,7 @@ int main(int argc, const char** argv) {
         }
     }
 
+    /* MAIN THREAD: CLEANUP */
     fclose_orDie(fin);
     fclose_orDie(fout);
 
